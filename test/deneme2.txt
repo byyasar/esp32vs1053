@@ -1,0 +1,69 @@
+//sd karttan 1.mp3 isimli dosyayı çalar
+
+
+#include <vs1053_ext.h>
+#include <vs1053b-patches-flac.h>
+#include "Arduino.h"
+#include "SPI.h"
+#include "FS.h"
+
+#include <Wire.h>
+
+
+
+String ssid = "ASUS";
+String password = "uTF52pvs";
+
+
+#define SD_CS 5
+#define VS1053_MOSI 23
+#define VS1053_MISO 19
+#define VS1053_SCK 18
+#define VS1053_CS 32
+#define VS1053_DCS 33
+#define VS1053_DREQ 35
+
+
+//Adafruit_PCD8544 display = Adafruit_PCD8544(22, 27, 4, 15, 2);
+VS1053 mp3(VS1053_CS, VS1053_DCS, VS1053_DREQ, VSPI, VS1053_MOSI, VS1053_MISO, VS1053_SCK);
+int volume = 100;
+
+
+bool isPlaying = false;
+bool intRadioDurum = true;
+
+
+
+
+void setup() {
+
+ Serial.begin(115200);
+
+ pinMode(SD_CS, OUTPUT);
+ digitalWrite(SD_CS, HIGH);
+
+
+ SPI.begin(VS1053_SCK, VS1053_MISO, VS1053_MOSI);
+ if (!SD.begin(SD_CS)) {
+   Serial.println("SD Card initialization failed!");
+   while (true)
+     ;
+ }
+
+
+ delay(1000);
+ mp3.begin();
+ mp3.setVolume(volume);
+ mp3.connecttoFS(SD, "1.mp3");
+
+}
+
+
+
+
+void loop() {
+    while (mp3.isRunning()) {
+        mp3.loop();
+    }
+}
+ 
