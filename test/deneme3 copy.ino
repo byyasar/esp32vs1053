@@ -17,12 +17,14 @@
 
 #define BUTTON1_PIN 25
 #define BUTTON2_PIN 26
+#define BUTTON3_PIN 27
 #define FIRCA1_PIN 12
+#define FIRCA2_PIN 34
 
 /*1- Kum saati baslangıcı*/
-#define PIN_DATAIN 14 // SCK
-#define PIN_CLK 13    // MOSI
-#define PIN_LOAD 15   // SS
+#define PIN_DATAIN 14 // SCK-din
+#define PIN_CLK 13    // MOSI-clk
+#define PIN_LOAD 15   // SS-cs
 /*1- Kum saati bitis*/
 
 VS1053 mp3(VS1053_CS, VS1053_DCS, VS1053_DREQ, VSPI, VS1053_MOSI, VS1053_MISO, VS1053_SCK);
@@ -38,7 +40,6 @@ float x, y;
 #define MATRIX_B 1
 #define ACC_THRESHOLD_LOW 0
 #define ACC_THRESHOLD_HIGH 0
-
 unsigned long lastDebounce = 0;
 bool calis = false;
 #define ROTATION_OFFSET 90
@@ -280,7 +281,9 @@ void setup()
   Serial.begin(115200);
   pinMode(BUTTON1_PIN, INPUT);
   pinMode(BUTTON2_PIN, INPUT);
+  pinMode(BUTTON3_PIN, INPUT);
   pinMode(FIRCA1_PIN, INPUT);
+  pinMode(FIRCA2_PIN, INPUT);
 
   /*Kum saati baslangıcı*/
   for (byte i = 0; i < 2; i++)
@@ -299,71 +302,34 @@ void setup()
       ;
   }
 
-  delay(1000);
+  delay(500);
   mp3.begin();
   mp3.setVolume(volume);
+  // randomSeed(analogRead(0)); // Rastgelelik için
+  delay(500);
+  Serial.println("ESP32 Dual-Core FreeRTOS başlıyor...");
 
-  randomSeed(analogRead(0)); // Rastgelelik için
-}
+  // Core 0’a görev atama
+  xTaskCreatePinnedToCore(
+      TaskCore0,        // Görev fonksiyonu
+      "Task on Core 0", // Görev adı
+      4096,             // Stack büyüklüğü (byte)
+      NULL,             // Parametre
+      1,                // Öncelik
+      NULL,             // Görev tanıtıcısı (handle)
+      0                 // Core numarası (0)
+  );
 
-void loop()
-{
-
-  if (digitalRead(FIRCA1_PIN) == HIGH && isPlaying == false)
-  { // Buton1'e basıldıysa
-    Serial.println("Firca 1 pressed - Play from Folder 1");
-    isPlaying = true;
-    playRandomSongFromFolder("/1");
-    delay(100); // Buton debouncing ve birden fazla tetiklemeyi önlemek için
-  }
-
-  if (digitalRead(BUTTON1_PIN) == HIGH)
-  { // Buton1'e basıldıysa
-    Serial.println("Button 1 pressed - Play from Folder 1");
-    // playRandomSongFromFolder("/1");
-    mp3.stop_mp3client();
-    isPlaying = false;
-    delay(100);
-  }
-
-  /*if (digitalRead(BUTTON2_PIN) == HIGH)
-   { // Buton2'ye basıldıysa
-     Serial.println("Button 2 pressed - Play from Folder 2");
-     mp3.stop_mp3client();
-     isPlaying = false;
-     playRandomSongFromFolder("/2");
-     delay(1000);
-   }*/
-
-  /*Kum saati baslangıcı*/
-  if (digitalRead(BUTTON2_PIN) == HIGH)
-  {
-    Serial.println("Baslat!");
-    if (millis() - lastDebounce > DEBOUNCE_THRESHOLD)
-    {
-      calis = !calis;
-      Serial.println(calis);
-      /*resetTime();
-      resetCounter = 0;
-       // Yeni debounce zamanı ayarla*/
-      lastDebounce = millis();
-    }
-  }
-  if (calis)
-  {
-    delay(DELAY_FRAME);
-    gravity = getGravity();
-    lc.setRotation((ROTATION_OFFSET + gravity) % 360);
-    // Serial.println(gravity);
-    bool moved = updateMatrix();
-    bool dropped = dropParticle();
-  }
-  /*Kum saati bitis*/
-
-  if (mp3.isRunning())
-  {
-    mp3.loop();
-  }
+  // Core 1’e görev atama
+  xTaskCreatePinnedToCore(
+      TaskCore1,
+      "Task on Core 1",
+      4096,
+      NULL,
+      1,
+      NULL,
+      1 // Core numarası (1)
+  );
 }
 
 void playRandomSongFromFolder(const char *folderPath)
@@ -416,12 +382,105 @@ void playRandomSongFromFolder(const char *folderPath)
         String path = String(folderPath) + "/" + file.name();
         Serial.print("[INFO] Now playing: ");
         Serial.println(path);
-
         mp3.connecttoFS(SD, path.c_str());
+        mp3.loop();
         break;
       }
       currentIndex++;
     }
     file = root.openNextFile();
   }
+}
+
+// ---------- Görev Fonksiyonları ----------
+void TaskCore0(void *pvParameters)
+{
+  while (true)
+  {
+    // Serial.println("Core 0: LED veya sensör görevi...");
+    if (digitalRead(FIRCA1_PIN) == HIGH && isPlaying == false)
+    { // Buton1'e basıldıysa
+      Serial.println("Firca 1 cikarildi");
+      isPlaying = true;
+      playRandomSongFromFolder("/1");
+      delay(100); // Buton debouncing ve birden fazla tetiklemeyi önlemek için
+    }
+    else if (digitalRead(FIRCA2_PIN) == HIGH && isPlaying == false)
+    {
+      Serial.println("FIRCA 2 cikarildi");
+      isPlaying = true;
+      playRandomSongFromFolder("/2");
+      delay(100);
+    }
+    else if (digitalRead(FIRCA1_PIN) == LOW && digitalRead(FIRCA2_PIN) == LOW && isPlaying == true)
+    { // Buton1'e basıldıysa
+      Serial.println("Firca 1 yerinde");
+      Serial.println("Firca 2 yerinde");
+      isPlaying = false;
+      mp3.stop_mp3client();
+      delay(100); // Buton debouncing ve birden fazla tetiklemeyi önlemek için
+    }
+
+    if (digitalRead(BUTTON1_PIN) == HIGH)
+    { // Buton1'e basıldıysa
+      Serial.println("Muzik Durduruldu");
+      mp3.stop_mp3client();
+      isPlaying = false;
+      delay(100);
+    }
+    if (mp3.isRunning())
+    {
+      mp3.loop();
+    }
+
+    vTaskDelay(50 / portTICK_PERIOD_MS);
+  }
+}
+
+void TaskCore1(void *pvParameters)
+{
+  while (true)
+  {
+    // Serial.println("Core 1: Ağ, ses, vs. görevi...");
+    /*Kum saati baslangıcı*/
+    if (digitalRead(BUTTON2_PIN) == HIGH)
+    {
+      Serial.println("Baslat!");
+      if (millis() - lastDebounce > DEBOUNCE_THRESHOLD)
+      {
+        calis = !calis;
+        Serial.println(calis);
+        lastDebounce = millis();
+      }
+    }
+    if (digitalRead(BUTTON3_PIN) == HIGH)
+    {
+      Serial.println("Resetle!");
+      for (byte i = 0; i < 2; i++)
+      {
+        lc.shutdown(i, false);
+        lc.setIntensity(i, 2);
+      }
+      calis = false;
+      resetTime();
+    }
+    if (calis)
+    {
+      delay(DELAY_FRAME);
+      gravity = getGravity();
+      lc.setRotation((ROTATION_OFFSET + gravity) % 360);
+      // Serial.println(gravity);
+      bool moved = updateMatrix();
+      bool dropped = dropParticle();
+    }
+    /*Kum saati bitis*/
+    vTaskDelay(50 / portTICK_PERIOD_MS);
+  }
+}
+
+// ---------- Loop ----------
+void loop()
+{
+
+  // Genellikle boş bırakılır, çünkü FreeRTOS görevleri kullanılıyor
 }

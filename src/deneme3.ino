@@ -6,6 +6,14 @@
 #include <Wire.h>
 #include "LedControl.h"
 #include "Delay.h"
+#include <WiFi.h>
+#include <AsyncTCP.h>
+#include <ESPAsyncWebServer.h>
+#include <HTTPClient.h>
+
+const char *ssid = "ASUS";
+const char *password = "uTF52pvs";
+String Web_App_URL = "https://script.google.com/macros/s/AKfycbwyWqEulpnu6J-dKeLH5wqyw2gWI_kCMJkm4w4r_b-S_Bf0YmvofwO5XNXL0_ISHrtC3A/exec";
 
 #define SD_CS 5
 #define VS1053_MOSI 23
@@ -31,6 +39,7 @@ VS1053 mp3(VS1053_CS, VS1053_DCS, VS1053_DREQ, VSPI, VS1053_MOSI, VS1053_MISO, V
 
 int volume = 100;
 bool isPlaying = false;
+String klasor="";
 
 /*2- Kum saati baslangıcı*/
 const int xOrigin = 64;
@@ -279,6 +288,17 @@ void resetCheck()
 void setup()
 {
   Serial.begin(115200);
+  // Wi-Fi'ye bağlanılıyor
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED)
+  {
+    delay(1000);
+    Serial.println("Bağlanıyor...");
+  }
+  Serial.println("Bağlantı başarılı!");
+  Serial.print("IP Adresi: ");
+  Serial.println(WiFi.localIP());
+
   pinMode(BUTTON1_PIN, INPUT);
   pinMode(BUTTON2_PIN, INPUT);
   pinMode(BUTTON3_PIN, INPUT);
@@ -313,7 +333,7 @@ void setup()
   xTaskCreatePinnedToCore(
       TaskCore0,        // Görev fonksiyonu
       "Task on Core 0", // Görev adı
-      4096,             // Stack büyüklüğü (byte)
+      8192,             // Stack büyüklüğü (byte)
       NULL,             // Parametre
       1,                // Öncelik
       NULL,             // Görev tanıtıcısı (handle)
@@ -332,8 +352,48 @@ void setup()
   );
 }
 
+bool DatayiGonder(String deviceId)
+{
+  bool isSendingData = false;
+
+  Serial.println("buton tiklandi");
+  String Send_Data_URL = Web_App_URL + "?sts=write";
+  Send_Data_URL += "&id=" + deviceId;
+
+  Serial.println();
+  Serial.println("-------------");
+  Serial.println("Google Spreadsheet'e Veri gonderiliyor...");
+  Serial.print("URL : ");
+  Serial.println(Send_Data_URL);
+
+  // Initialize HTTPClient as "http".
+  HTTPClient http;
+  // HTTP GET Request.
+  http.begin(Send_Data_URL.c_str());
+  http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
+  // Gets the HTTP status code.
+  int httpCode = http.GET();
+  Serial.print("HTTP Status Code : ");
+  Serial.println(httpCode);
+  // Getting response from google sheets.
+  String payload;
+  if (httpCode > 0)
+  {
+    payload = http.getString();
+    Serial.println("Payload : " + payload);
+    isSendingData = true;
+  }
+  http.end();
+  return isSendingData;
+}
+
 void playRandomSongFromFolder(const char *folderPath)
 {
+  if (mp3.isRunning())
+  {
+    mp3.stop_mp3client();
+  }
+
   Serial.print("[INFO] Opening folder: ");
   Serial.println(folderPath);
 
@@ -382,8 +442,10 @@ void playRandomSongFromFolder(const char *folderPath)
         String path = String(folderPath) + "/" + file.name();
         Serial.print("[INFO] Now playing: ");
         Serial.println(path);
-        mp3.connecttoFS(SD, path.c_str());
-        mp3.loop();
+        bool durum = mp3.connecttoFS(SD, path.c_str());
+        Serial.print("Durum :");
+        Serial.println(durum);
+
         break;
       }
       currentIndex++;
@@ -401,36 +463,63 @@ void TaskCore0(void *pvParameters)
     if (digitalRead(FIRCA1_PIN) == HIGH && isPlaying == false)
     { // Buton1'e basıldıysa
       Serial.println("Firca 1 cikarildi");
+      /* while (!DatayiGonder("Firca1"))
+      {
+      } */
       isPlaying = true;
       playRandomSongFromFolder("/1");
-      delay(100); // Buton debouncing ve birden fazla tetiklemeyi önlemek için
+      klasor="/1";
+      delay(100);
     }
     else if (digitalRead(FIRCA2_PIN) == HIGH && isPlaying == false)
     {
       Serial.println("FIRCA 2 cikarildi");
+      /*while (!DatayiGonder("Firca2"))
+       {
+       }*/
       isPlaying = true;
       playRandomSongFromFolder("/2");
+      klasor="/2";
       delay(100);
+
     }
     else if (digitalRead(FIRCA1_PIN) == LOW && digitalRead(FIRCA2_PIN) == LOW && isPlaying == true)
     { // Buton1'e basıldıysa
       Serial.println("Firca 1 yerinde");
       Serial.println("Firca 2 yerinde");
+      klasor = "";
       isPlaying = false;
       mp3.stop_mp3client();
       delay(100); // Buton debouncing ve birden fazla tetiklemeyi önlemek için
     }
+    // TODO: Buton1'e basıldıysa FIRÇALAR DIŞARDA İKEN YENİDEN VERİ GÖNDERİYOR DÜZELTİLECEK
 
     if (digitalRead(BUTTON1_PIN) == HIGH)
     { // Buton1'e basıldıysa
       Serial.println("Muzik Durduruldu");
-      mp3.stop_mp3client();
+      if (mp3.isRunning())
+      {
+        mp3.stop_mp3client();
+      }
+      delay(100);
       isPlaying = false;
       delay(100);
     }
     if (mp3.isRunning())
     {
       mp3.loop();
+    }
+    else
+    {
+      Serial.println("Muzik Durduruldu");
+      const char* charUrl = klasor.c_str();
+      if (klasor != "")
+      {
+         playRandomSongFromFolder(charUrl);
+      }
+      
+     
+      delay(100);
     }
 
     vTaskDelay(50 / portTICK_PERIOD_MS);
