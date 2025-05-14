@@ -39,7 +39,8 @@ VS1053 mp3(VS1053_CS, VS1053_DCS, VS1053_DREQ, VSPI, VS1053_MOSI, VS1053_MISO, V
 
 int volume = 100;
 bool isPlaying = false;
-String klasor="";
+String klasor = "";
+String cihazId = "";
 
 /*2- Kum saati baslangıcı*/
 const int xOrigin = 64;
@@ -333,7 +334,7 @@ void setup()
   xTaskCreatePinnedToCore(
       TaskCore0,        // Görev fonksiyonu
       "Task on Core 0", // Görev adı
-      8192,             // Stack büyüklüğü (byte)
+      4096,             // Stack büyüklüğü (byte)
       NULL,             // Parametre
       1,                // Öncelik
       NULL,             // Görev tanıtıcısı (handle)
@@ -344,7 +345,7 @@ void setup()
   xTaskCreatePinnedToCore(
       TaskCore1,
       "Task on Core 1",
-      4096,
+      8192,
       NULL,
       1,
       NULL,
@@ -466,33 +467,48 @@ void TaskCore0(void *pvParameters)
       /* while (!DatayiGonder("Firca1"))
       {
       } */
-      isPlaying = true;
-      playRandomSongFromFolder("/1");
-      klasor="/1";
+      cihazId = "Firca1";
+      //isPlaying = true;
+      // playRandomSongFromFolder("/1");
+      klasor = "/1";
       delay(100);
     }
     else if (digitalRead(FIRCA2_PIN) == HIGH && isPlaying == false)
     {
       Serial.println("FIRCA 2 cikarildi");
-      /*while (!DatayiGonder("Firca2"))
-       {
-       }*/
-      isPlaying = true;
-      playRandomSongFromFolder("/2");
-      klasor="/2";
+      cihazId = "Firca2";
+      //isPlaying = true;
+      // playRandomSongFromFolder("/2");
+      klasor = "/2";
       delay(100);
-
     }
     else if (digitalRead(FIRCA1_PIN) == LOW && digitalRead(FIRCA2_PIN) == LOW && isPlaying == true)
     { // Buton1'e basıldıysa
       Serial.println("Firca 1 yerinde");
       Serial.println("Firca 2 yerinde");
+
+      //
+      if (calis)
+      {
+        Serial.println("Resetle!");
+        for (byte i = 0; i < 2; i++)
+        {
+          lc.shutdown(i, false);
+          lc.setIntensity(i, 2);
+        }
+        calis = false;
+        resetTime();
+      }
+
+      //
+
+      cihazId = "";
       klasor = "";
       isPlaying = false;
       mp3.stop_mp3client();
       delay(100); // Buton debouncing ve birden fazla tetiklemeyi önlemek için
     }
-    // TODO: Buton1'e basıldıysa FIRÇALAR DIŞARDA İKEN YENİDEN VERİ GÖNDERİYOR DÜZELTİLECEK
+    // TODO: Veriyi gönder sonra müzik çal
 
     if (digitalRead(BUTTON1_PIN) == HIGH)
     { // Buton1'e basıldıysa
@@ -501,7 +517,6 @@ void TaskCore0(void *pvParameters)
       {
         mp3.stop_mp3client();
       }
-      delay(100);
       isPlaying = false;
       delay(100);
     }
@@ -509,16 +524,15 @@ void TaskCore0(void *pvParameters)
     {
       mp3.loop();
     }
-    else
+    else 
     {
       Serial.println("Muzik Durduruldu");
-      const char* charUrl = klasor.c_str();
-      if (klasor != "")
+      const char *charUrl = klasor.c_str();
+      if (klasor != "" && isPlaying == true)
       {
-         playRandomSongFromFolder(charUrl);
+        playRandomSongFromFolder(charUrl);
       }
-      
-     
+
       delay(100);
     }
 
@@ -535,6 +549,20 @@ void TaskCore1(void *pvParameters)
     if (digitalRead(BUTTON2_PIN) == HIGH)
     {
       Serial.println("Baslat!");
+      if (cihazId != "")
+      {
+        while (!DatayiGonder(cihazId))
+        {
+          Serial.println("Veri gonderiliyor...");
+        }
+        const char *charUrl = klasor.c_str();
+        if (klasor != "" && isPlaying == false)
+        {
+          isPlaying = true;
+          playRandomSongFromFolder(charUrl);
+        }
+      }
+
       if (millis() - lastDebounce > DEBOUNCE_THRESHOLD)
       {
         calis = !calis;
