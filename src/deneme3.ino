@@ -41,6 +41,7 @@ int volume = 100;
 bool isPlaying = false;
 String klasor = "";
 String cihazId = "";
+String path ="";  
 
 /*2- Kum saati baslangıcı*/
 const int xOrigin = 64;
@@ -440,13 +441,12 @@ void playRandomSongFromFolder(const char *folderPath)
     {
       if (currentIndex == targetIndex)
       {
-        String path = String(folderPath) + "/" + file.name();
+         path = String(folderPath) + "/" + file.name();
         Serial.print("[INFO] Now playing: ");
         Serial.println(path);
         bool durum = mp3.connecttoFS(SD, path.c_str());
         Serial.print("Durum :");
         Serial.println(durum);
-
         break;
       }
       currentIndex++;
@@ -530,7 +530,8 @@ void TaskCore0(void *pvParameters)
       const char *charUrl = klasor.c_str();
       if (klasor != "" && isPlaying == true)
       {
-        playRandomSongFromFolder(charUrl);
+        //playRandomSongFromFolder(charUrl);
+        mp3.connecttoFS(SD, path.c_str());
       }
 
       delay(100);
