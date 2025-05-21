@@ -41,8 +41,7 @@ int volume = 100;
 bool isPlaying = false;
 String klasor = "";
 String cihazId = "";
-String path = "";
-bool wifiStatus = false;
+String path ="";  
 
 /*2- Kum saati baslangıcı*/
 const int xOrigin = 64;
@@ -287,55 +286,20 @@ void resetCheck()
 }
 
 /*2- Kum saati bitis*/
-/*Wifi baslangıcı*/
-void WifiBaslat()
-{
-  int maxRetries = 3;
-  int attempt = 0;
-  const int timeout = 2000; // her deneme için maksimum 5 saniye bekle
-  while (attempt < maxRetries)
-  {
-    Serial.print("Wi-Fi'ye bağlanılıyor... Deneme ");
-    Serial.println(attempt + 1);
-    WiFi.begin(ssid, password);
-    unsigned long startAttemptTime = millis();
-    // 2 saniye boyunca bağlanmaya çalış
-    while (WiFi.status() != WL_CONNECTED &&
-           millis() - startAttemptTime < timeout)
-    {
-      delay(500);
-      Serial.print(".");
-    }
-    Serial.println();
 
-    if (WiFi.status() == WL_CONNECTED)
-    {
-      Serial.println("Wi-Fi'ye başarıyla bağlanıldı!");
-      Serial.print("IP adresi: ");
-      Serial.println(WiFi.localIP());
-      wifiStatus = true;
-      break;
-    }
-    else
-    {
-      Serial.println("Bağlantı başarısız.");
-      attempt++;
-    }
-  }
-
-  if (WiFi.status() != WL_CONNECTED)
-  {
-    Serial.println("Wi-Fi bağlantısı kurulamadı. Devam edilmiyor.");
-    wifiStatus = false;
-    // İstersen burada cihazı resetleyebilir veya AP moduna geçirebilirsin
-  }
-}
-/*Wifi bitis */
 void setup()
 {
   Serial.begin(115200);
   // Wi-Fi'ye bağlanılıyor
-  WifiBaslat();
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED)
+  {
+    delay(1000);
+    Serial.println("Bağlanıyor...");
+  }
+  Serial.println("Bağlantı başarılı!");
+  Serial.print("IP Adresi: ");
+  Serial.println(WiFi.localIP());
 
   pinMode(BUTTON1_PIN, INPUT);
   pinMode(BUTTON2_PIN, INPUT);
@@ -392,44 +356,37 @@ void setup()
 
 bool DatayiGonder(String deviceId)
 {
-  if (wifiStatus)
+  bool isSendingData = false;
+
+  Serial.println("buton tiklandi");
+  String Send_Data_URL = Web_App_URL + "?sts=write";
+  Send_Data_URL += "&id=" + deviceId;
+
+  Serial.println();
+  Serial.println("-------------");
+  Serial.println("Google Spreadsheet'e Veri gonderiliyor...");
+  Serial.print("URL : ");
+  Serial.println(Send_Data_URL);
+
+  // Initialize HTTPClient as "http".
+  HTTPClient http;
+  // HTTP GET Request.
+  http.begin(Send_Data_URL.c_str());
+  http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
+  // Gets the HTTP status code.
+  int httpCode = http.GET();
+  Serial.print("HTTP Status Code : ");
+  Serial.println(httpCode);
+  // Getting response from google sheets.
+  String payload;
+  if (httpCode > 0)
   {
-    bool isSendingData = false;
-
-    Serial.println("buton tiklandi");
-    String Send_Data_URL = Web_App_URL + "?sts=write";
-    Send_Data_URL += "&id=" + deviceId;
-
-    Serial.println();
-    Serial.println("-------------");
-    Serial.println("Google Spreadsheet'e Veri gonderiliyor...");
-    Serial.print("URL : ");
-    Serial.println(Send_Data_URL);
-
-    // Initialize HTTPClient as "http".
-    HTTPClient http;
-    // HTTP GET Request.
-    http.begin(Send_Data_URL.c_str());
-    http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
-    // Gets the HTTP status code.
-    int httpCode = http.GET();
-    Serial.print("HTTP Status Code : ");
-    Serial.println(httpCode);
-    // Getting response from google sheets.
-    String payload;
-    if (httpCode > 0)
-    {
-      payload = http.getString();
-      Serial.println("Payload : " + payload);
-      isSendingData = true;
-    }
-    http.end();
-    return isSendingData;
+    payload = http.getString();
+    Serial.println("Payload : " + payload);
+    isSendingData = true;
   }
-  else
-  {
-    return false;
-  }
+  http.end();
+  return isSendingData;
 }
 
 void playRandomSongFromFolder(const char *folderPath)
@@ -484,7 +441,7 @@ void playRandomSongFromFolder(const char *folderPath)
     {
       if (currentIndex == targetIndex)
       {
-        path = String(folderPath) + "/" + file.name();
+         path = String(folderPath) + "/" + file.name();
         Serial.print("[INFO] Now playing: ");
         Serial.println(path);
         bool durum = mp3.connecttoFS(SD, path.c_str());
@@ -511,8 +468,8 @@ void TaskCore0(void *pvParameters)
       {
       } */
       cihazId = "Firca1";
-      isPlaying = true;
-      //  playRandomSongFromFolder("/1");
+      //isPlaying = true;
+      // playRandomSongFromFolder("/1");
       klasor = "/1";
       delay(100);
     }
@@ -520,8 +477,8 @@ void TaskCore0(void *pvParameters)
     {
       Serial.println("FIRCA 2 cikarildi");
       cihazId = "Firca2";
-      isPlaying = true;
-      //  playRandomSongFromFolder("/2");
+      //isPlaying = true;
+      // playRandomSongFromFolder("/2");
       klasor = "/2";
       delay(100);
     }
@@ -567,19 +524,14 @@ void TaskCore0(void *pvParameters)
     {
       mp3.loop();
     }
-    else
+    else 
     {
-      if (isPlaying)
+      Serial.println("Muzik Durduruldu");
+      const char *charUrl = klasor.c_str();
+      if (klasor != "" && isPlaying == true)
       {
-        Serial.println("Muzik yeniden oynatılıyor");
-        const char *charUrl = klasor.c_str();
-        if (klasor != "" && isPlaying == true)
-        {
-          playRandomSongFromFolder(charUrl);
-          //mp3.connecttoFS(SD, path.c_str());
-          delay(3000);
-        }
-         
+        //playRandomSongFromFolder(charUrl);
+        mp3.connecttoFS(SD, path.c_str());
       }
 
       delay(100);
@@ -598,18 +550,18 @@ void TaskCore1(void *pvParameters)
     if (digitalRead(BUTTON2_PIN) == HIGH)
     {
       Serial.println("Baslat!");
-      if (cihazId != "" && wifiStatus == true)
+      if (cihazId != "")
       {
         while (!DatayiGonder(cihazId))
         {
           Serial.println("Veri gonderiliyor...");
         }
-        /*const char *charUrl = klasor.c_str();
+        const char *charUrl = klasor.c_str();
         if (klasor != "" && isPlaying == false)
         {
           isPlaying = true;
           playRandomSongFromFolder(charUrl);
-        }*/
+        }
       }
 
       if (millis() - lastDebounce > DEBOUNCE_THRESHOLD)
