@@ -11,7 +11,9 @@
 
 
 String klasor = "";
-String cihazId = "";
+String fircaId = "";
+String cihazId="Cihaz1";
+
 
 void setup()
 {
@@ -115,18 +117,18 @@ void TaskCore0(void *pvParameters)
     if (digitalRead(FIRCA1_PIN) == HIGH && isPlaying == false)
     { // Buton1'e basıldıysa
       Serial.println("Firca 1 cikarildi");
-      cihazId = "Firca1";
+      fircaId = "Firca1";
       klasor = "/1";
       delay(100);
     }
     else if (digitalRead(FIRCA2_PIN) == HIGH && isPlaying == false)
     {
       Serial.println("FIRCA 2 cikarildi");
-      cihazId = "Firca2";
+      fircaId = "Firca2";
       klasor = "/2";
       delay(100);
     }
-    else if (digitalRead(FIRCA1_PIN) == LOW && digitalRead(FIRCA2_PIN) == LOW && isPlaying == true)
+    else if (digitalRead(FIRCA1_PIN) == LOW && digitalRead(FIRCA2_PIN) == LOW)
     {
       Serial.println("Firca 1 yerinde");
       Serial.println("Firca 2 yerinde");
@@ -139,7 +141,7 @@ void TaskCore0(void *pvParameters)
         lc.clearDisplay(MATRIX_A);
         lc.clearDisplay(MATRIX_B);
       }
-      cihazId = "";
+      fircaId = "";
       klasor = "";
       MuzikDurdurFnc();
     }
@@ -190,9 +192,9 @@ void TaskCore1(void *pvParameters)
         lc.setIntensity(i, 2);
       }
       resetTime();
-      if (cihazId != "" && wifiStatus == true)
+      if (fircaId != "" && wifiStatus == true)
       {
-        while (!DatayiGonder(cihazId))
+        while (!DatayiGonder(cihazId,fircaId))
         {
           Serial.println("Veri gonderiliyor...");
         }

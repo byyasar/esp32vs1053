@@ -79,7 +79,7 @@ void setTurkeyTimezone()
 /*Tarih saat işlemleri bitis*/
 
 
-bool DatayiGonder(String deviceId)
+bool DatayiGonder(String cihazId, String fircaId)
 {
   if (wifiStatus)
   {
@@ -93,8 +93,10 @@ bool DatayiGonder(String deviceId)
     FirebaseJson json;
     json.set("tarih", tarih);
     json.set("saat", saat);
-    json.set("cihaz_id", deviceId);
+    json.set("fircaId", fircaId);
     String base_path = "/fircalama_kayitlari/";
+    base_path.concat(cihazId);
+    base_path.concat("/");
     Firebase.pushJSON(fbdo, base_path, json);
     Serial.println(base_path);
 
