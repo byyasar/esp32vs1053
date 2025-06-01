@@ -3,12 +3,10 @@
 #include <FirebaseESP32.h> 
 #include <addons/TokenHelper.h>
 #include <addons/RTDBHelper.h>
+#include "config.h"
 
 
-#define FIREBASE_HOST "https://braishiq-default-rtdb.firebaseio.com/" // "/" ile bitmeli
-#define API_KEY "AIzaSyC2aP4Q-1g9tPN4d7yOYRDFMTGp5n6jUTY"
-#define USER_EMAIL "byyasar@gmail.com" // Firebase Auth email (gerekirse)
-#define USER_PASSWORD "098765"         // Firebase Auth password (gerekirse)
+
 
 // Firebase nesneleri
 FirebaseData fbdo;

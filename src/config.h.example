@@ -1,0 +1,11 @@
+#ifndef CONFIG_H
+#define CONFIG_H
+
+// Firebase Configuration
+// Replace these values with your actual Firebase credentials
+#define FIREBASE_HOST "your-project-url.firebaseio.com"
+#define FIREBASE_API_KEY "your-api-key"
+#define FIREBASE_USER_EMAIL "your-email@example.com"
+#define FIREBASE_USER_PASSWORD "your-password"
+
+#endif // CONFIG_H 
